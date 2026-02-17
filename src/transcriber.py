@@ -1,6 +1,7 @@
 import ssl
 import certifi
 import os
+import platform
 from pathlib import Path
 
 ssl._create_default_https_context = lambda: ssl.create_default_context(cafile=certifi.where())
@@ -16,6 +17,15 @@ def _get_device() -> str:
     env_device = os.getenv("WHISPER_DEVICE")
     if env_device:
         return env_device
+
+    # On macOS, actively probe MPS because some setups report availability inconsistently.
+    if platform.system() == "Darwin" and torch.backends.mps.is_built():
+        try:
+            _ = torch.zeros(1, device="mps")
+            return "mps"
+        except Exception:
+            pass
+
     if torch.backends.mps.is_available():
         return "mps"
     if torch.cuda.is_available():
